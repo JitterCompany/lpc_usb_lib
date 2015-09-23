@@ -28,9 +28,6 @@ PWD = $(shell pwd)
 
 CFLAGS = -O0 -g3 -Wall -c -fmessage-length=0 -fno-builtin -ffunction-sections -fdata-sections -std=gnu99 -mthumb -MMD -MP -fdebug-prefix-map=$(PWD)=../libs/lpc_usb_lib/
 
-test:
-	@echo $(CFLAGS)
-
 OBJS := \
 Drivers/USB/Core/HCD/OHCI/OHCI.o \
 Drivers/USB/Core/HCD/EHCI/EHCI.o \
