@@ -24,6 +24,12 @@ TARGET_ARCHS = 11uxx 43xx_m0
 43xx_m0: ILIBS = -I./Common -I./../lpc_chip_43xx_m0/inc
 43xx_m0: GLOBAL_DEFS = -D__LPC43XX__ -DUSB_DEVICE_ONLY -DCORE_M0 
 
+PWD = $(shell pwd)
+
+CFLAGS = -O0 -g3 -Wall -c -fmessage-length=0 -fno-builtin -ffunction-sections -fdata-sections -std=gnu99 -mthumb -MMD -MP -fdebug-prefix-map=$(PWD)=../libs/lpc_usb_lib/
+
+test:
+	@echo $(CFLAGS)
 
 OBJS := \
 Drivers/USB/Core/HCD/OHCI/OHCI.o \
@@ -99,7 +105,7 @@ post-build: $(TARGET_ARCHS)
 	mkdir -p '$(dir $@)'
 	@echo 'Building file: $@ in $(BUILD_DIR) from $<'
 	@echo 'Invoking: MCU C Compiler'
-	$(CC) $(GLOBAL_DEFS) $(ILIBS) -O0 -g3 -Wall -c -fmessage-length=0 -fno-builtin -ffunction-sections -fdata-sections -std=gnu99 -mcpu=cortex-$(CORE) -mthumb -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	$(CC) $(GLOBAL_DEFS) $(ILIBS) -mcpu=cortex-$(CORE) $(CFLAGS) -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
@@ -107,7 +113,7 @@ post-build: $(TARGET_ARCHS)
 	mkdir -p '$(dir $@)'
 	@echo 'Building file: $@ in $(BUILD_DIR) from $<'
 	@echo 'Invoking: MCU C Compiler'
-	$(CC) $(GLOBAL_DEFS) $(ILIBS) -O0 -g3 -Wall -c -fmessage-length=0 -fno-builtin -ffunction-sections -fdata-sections -std=gnu99 -mcpu=cortex-$(CORE) -mthumb -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	$(CC) $(GLOBAL_DEFS) $(ILIBS) -mcpu=cortex-$(CORE) $(CFLAGS) -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
