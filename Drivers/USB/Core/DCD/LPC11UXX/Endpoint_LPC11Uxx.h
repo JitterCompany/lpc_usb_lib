@@ -338,7 +338,7 @@ static inline void Endpoint_ClearIN(uint8_t corenum)
 static inline void Endpoint_sendData(uint8_t corenum, uint8_t ep, uint8_t * data, uint32_t size) ATTR_ALWAYS_INLINE;
 static inline void Endpoint_sendData(uint8_t corenum, uint8_t ep, uint8_t * data, uint32_t size)
 {
-	for(int i=0;i<size;i++)
+	for(uint32_t i=0;i<size;i++)
 	{
 		usb_data_buffer_IN[corenum][i] = data[i];
 	}
