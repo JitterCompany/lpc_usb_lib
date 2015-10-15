@@ -479,7 +479,8 @@ static inline bool Endpoint_IsINReady(uint8_t corenum) ATTR_WARN_UNUSED_RESULT A
 
 static inline bool Endpoint_IsINReady(uint8_t corenum)
 {
-	uint8_t PhyEP = (endpointselected[corenum] == ENDPOINT_CONTROLEP ? 1 : endpointhandle(corenum)[endpointselected[corenum]]);
+	uint8_t PhyEP = 2 * endpointselected[corenum] + 1; 
+	//uint8_t PhyEP = (endpointselected[corenum] == ENDPOINT_CONTROLEP ? 1 : endpointhandle(corenum)[endpointselected[corenum]]);
 	return (dQueueHead[corenum][PhyEP].overlay.NextTD & LINK_TERMINATE) &&
 		   (dQueueHead[corenum][PhyEP].overlay.Active == 0);
 }
