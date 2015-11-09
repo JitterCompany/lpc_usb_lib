@@ -96,7 +96,8 @@
 					#define USB_DEVICE_ROM_DRIVER
 				#endif
 
-				#define MAX_USB_CORE					2
+				#define MAX_USB_CORE					1       //TODO: Dual USB Core is not supported, 
+                                                                //so set temporarily to 1
 
 			#elif (defined(__LPC11U1X__) || defined(__LPC11U2X_3X__) || defined(__LPC1347__))
 				#define USB_CAN_BE_DEVICE

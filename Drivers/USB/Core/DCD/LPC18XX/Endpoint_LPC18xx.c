@@ -476,7 +476,7 @@ void DcdIrqHandler(uint8_t corenum)
 									usb_data_buffer_OUT_size[corenum] = 0;
 									/* Clear NAK */
 									USB_Reg->ENDPTNAKEN &= ~(1 << LogicalEP);
-									DcdDataTransfer(corenum, PhyEP, usb_data_buffer_OUT[corenum], 512	/*512*/);
+									DcdDataTransfer(corenum, PhyEP, usb_data_buffer_OUT[corenum], 1024);
 								}
 							}
 						}

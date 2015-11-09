@@ -45,7 +45,7 @@
 
 /* Macros: */
 /** Size of share memory buffer that a device uses to communicate with host. */
-#define USB_DATA_BUFFER_TEM_LENGTH      512
+#define USB_DATA_BUFFER_TEM_LENGTH      1024
 
 /* Global Variables: */
 /** Share memory buffer. */
