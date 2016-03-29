@@ -21,7 +21,7 @@ TARGET_ARCHS = 11uxx 43xx_m0
 43xx_m0: CORE = m0
 43xx_m0: BUILD_DIR = $(BUILD_DIR_BASE)43xx_m0/
 43xx_m0: OBJS_F = $(addprefix $(BUILD_DIR), $(OBJS))
-43xx_m0: ILIBS = -I./Common -I./../lpc_chip_43xx_m0/inc
+43xx_m0: ILIBS = -I./Common -I./../lpc_chip_43xx_m0/inc -I./../lpc_chip_43xx_m0/inc/config_m0app
 43xx_m0: GLOBAL_DEFS = -D__LPC43XX__ -DUSB_DEVICE_ONLY -DCORE_M0 
 
 PWD = $(shell pwd)
