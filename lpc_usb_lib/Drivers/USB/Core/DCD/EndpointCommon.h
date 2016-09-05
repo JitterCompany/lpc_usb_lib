@@ -45,7 +45,11 @@
 
 /* Macros: */
 /** Size of share memory buffer that a device uses to communicate with host. */
-#define USB_DATA_BUFFER_TEM_LENGTH      1024
+#if defined(__LPC11U1X__)
+    #define USB_DATA_BUFFER_TEM_LENGTH      512
+#else
+    #define USB_DATA_BUFFER_TEM_LENGTH      1024
+#endif
 
 /* Global Variables: */
 /** Share memory buffer. */
