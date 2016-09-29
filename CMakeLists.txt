@@ -42,12 +42,11 @@ endif()
 
 if(NOT DEFINED MCU_PLATFORM)
     message(FATAL_ERROR "${CPM_MODULE_NAME}: \
-    please define variable 'MCU_PLAFROM'")
+    please define variable 'MCU_PLATFROM'")
 endif()
 
 
 if("${MCU_PLATFORM}" STREQUAL "43xx_m4")
-    add_definitions(-D__LPC43XX__)
     message(STATUS "lpc_usb_lib: Platform '43xx_m4' detected")
 
     CPM_AddModule("lpc_chip_43xx_m4"
@@ -55,7 +54,6 @@ if("${MCU_PLATFORM}" STREQUAL "43xx_m4")
         GIT_TAG "1.0")
 
 elseif("${MCU_PLATFORM}" STREQUAL "43xx_m0")
-    add_definitions(-D__LPC43XX__)
     message(STATUS "lpc_usb_lib: Platform '43xx_m0' detected")
 
     CPM_AddModule("lpc_chip_43xx_m0"
@@ -63,7 +61,6 @@ elseif("${MCU_PLATFORM}" STREQUAL "43xx_m0")
         GIT_TAG "1.0")
 
 elseif("${MCU_PLATFORM}" STREQUAL "11uxx_m0")
-    add_definitions(-D__LPC11u1X__)
     message(STATUS "lpc_usb_lib: Platform '11uxx_m0' detected")
     message(FATAL_ERROR "lpc_usb_lib: Platform '11uxx_m0' not supported yet:\
     \n Chip library not available")
