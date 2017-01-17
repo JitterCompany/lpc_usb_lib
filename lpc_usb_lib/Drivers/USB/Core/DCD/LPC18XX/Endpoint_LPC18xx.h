@@ -554,10 +554,12 @@ static inline void Endpoint_ClearIN(uint8_t corenum)
 		DcdDataTransfer(corenum, PhyEP, (uint8_t *)usb_data_buffer[corenum], usb_data_buffer_index[corenum]);
 		usb_data_buffer_index[corenum] = 0;
 	}
-	else {
+    // Since we use Endpoint_sendData we don't need this part
+/*	else {
 		DcdDataTransfer(corenum, PhyEP, usb_data_buffer_IN[corenum], usb_data_buffer_IN_index[corenum]);
 		usb_data_buffer_IN_index[corenum] = 0;
 	}
+*/
 }
 
 static inline void Endpoint_sendData(uint8_t corenum, uint8_t ep, uint8_t * data, uint32_t size) ATTR_ALWAYS_INLINE;

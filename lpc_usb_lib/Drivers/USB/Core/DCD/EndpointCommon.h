@@ -42,6 +42,7 @@
 
 /* Includes: */
 #include "../HAL/HAL.h"
+#include "../../../../LPCUSBlibConfig.h"
 
 /* Macros: */
 /** Size of share memory buffer that a device uses to communicate with host. */
@@ -54,9 +55,10 @@
 /* Global Variables: */
 /** Share memory buffer. */
 /* Control EP buffer */
-extern uint8_t usb_data_buffer[][USB_DATA_BUFFER_TEM_LENGTH];
+extern uint8_t usb_data_buffer[][FIXED_CONTROL_ENDPOINT_SIZE];
 /* Non-Control EP IN buffer */
-extern uint8_t usb_data_buffer_IN[][USB_DATA_BUFFER_TEM_LENGTH];
+// Note: we don't use this buffer, so set it to size = 1
+extern uint8_t usb_data_buffer_IN[][1];
 /* Non-Control EP OUT buffer */
 extern uint8_t usb_data_buffer_OUT[][USB_DATA_BUFFER_TEM_LENGTH];
 /* Control EP buffer size */

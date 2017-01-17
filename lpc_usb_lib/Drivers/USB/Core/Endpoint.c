@@ -40,14 +40,16 @@ uint8_t USB_Device_ControlEndpointSize = ENDPOINT_CONTROLEP_DEFAULT_SIZE;
 #endif
 
 PRAGMA_ALIGN_64
-uint8_t usb_data_buffer[MAX_USB_CORE][USB_DATA_BUFFER_TEM_LENGTH] ATTR_ALIGNED(64) __BSS(USBRAM_SECTION);/* TODO 11uxx require buffer is 64 byte aligned */
+// allocate a 64byte control ep buffer
+uint8_t usb_data_buffer[MAX_USB_CORE][FIXED_CONTROL_ENDPOINT_SIZE] ATTR_ALIGNED(64) __BSS(USBRAM_SECTION);/* TODO 11uxx require buffer is 64 byte aligned */
 
 volatile int32_t usb_data_buffer_size[MAX_USB_CORE];
 volatile uint32_t usb_data_buffer_index[MAX_USB_CORE];
 uint8_t usb_data_buffer_OUT[MAX_USB_CORE][USB_DATA_BUFFER_TEM_LENGTH] ATTR_ALIGNED(64) __BSS(USBRAM_SECTION);/* TODO 11uxx require buffer is 64 byte aligned */
 volatile uint32_t usb_data_buffer_OUT_size[MAX_USB_CORE];
 volatile uint32_t usb_data_buffer_OUT_index[MAX_USB_CORE];
-uint8_t usb_data_buffer_IN[MAX_USB_CORE][USB_DATA_BUFFER_TEM_LENGTH] ATTR_ALIGNED(64) __BSS(USBRAM_SECTION);	/* TODO 11uxx require buffer is 64 byte aligned */
+// Note: we don't use this buffer, so set it to size = 1
+uint8_t usb_data_buffer_IN[MAX_USB_CORE][1] ATTR_ALIGNED(64) __BSS(USBRAM_SECTION);	/* TODO 11uxx require buffer is 64 byte aligned */
 volatile uint32_t usb_data_buffer_IN_index[MAX_USB_CORE];
 
 uint8_t endpointselected[MAX_USB_CORE];
