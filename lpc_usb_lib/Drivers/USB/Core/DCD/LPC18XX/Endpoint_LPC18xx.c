@@ -99,13 +99,14 @@ void DcdInsertTD(uint32_t head, uint32_t newtd);
 
 void DcdPrepareTD(DeviceTransferDescriptor *pDTD, uint8_t *pData, uint32_t length, uint8_t IOC);
 
+
 void HAL_Reset(uint8_t corenum)
 {
 	uint32_t i;
 	LPC_USBHS_T * USB_Reg;
 	USB_Reg = USB_REG(corenum);
 
-	/* disable all EPs */
+	// disable all EPs
 	USB_Reg->ENDPTCTRL[0] &= ~(ENDPTCTRL_RxEnable | ENDPTCTRL_TxEnable);
 	USB_Reg->ENDPTCTRL[1] &= ~(ENDPTCTRL_RxEnable | ENDPTCTRL_TxEnable);
 	USB_Reg->ENDPTCTRL[2] &= ~(ENDPTCTRL_RxEnable | ENDPTCTRL_TxEnable);
@@ -115,34 +116,43 @@ void HAL_Reset(uint8_t corenum)
 		USB_Reg->ENDPTCTRL[5] &= ~(ENDPTCTRL_RxEnable | ENDPTCTRL_TxEnable);
 	}
 
-	/* Clear all pending interrupts */
+	// Clear all pending interrupts
 	USB_Reg->ENDPTNAK     = 0xFFFFFFFF;
 	USB_Reg->ENDPTNAKEN       = 0;
 	USB_Reg->USBSTS_D     = 0xFFFFFFFF;
 	USB_Reg->ENDPTSETUPSTAT   = USB_Reg->ENDPTSETUPSTAT;
 	USB_Reg->ENDPTCOMPLETE    = USB_Reg->ENDPTCOMPLETE;
-	while (USB_Reg->ENDPTPRIME) ;				/* Wait until all bits are 0 */
-	USB_Reg->ENDPTFLUSH = 0xFFFFFFFF;
-	while (USB_Reg->ENDPTFLUSH) ;	/* Wait until all bits are 0 */
 
-	/* Set the interrupt Threshold control interval to 0 */
+    // Wait until all bits are 0
+	while (USB_Reg->ENDPTPRIME);
+	USB_Reg->ENDPTFLUSH = 0xFFFFFFFF;
+
+    // Wait until all bits are 0
+	while (USB_Reg->ENDPTFLUSH);
+
+	// Set the interrupt Threshold control interval to 0
 	USB_Reg->USBCMD_D &= ~0x00FF0000;
 
-	/* Configure the Endpoint List Address */
-	/* make sure it in on 64 byte boundary !!! */
-	/* init list address */
+    // Note: should be 2KiB aligned
 	USB_Reg->ENDPOINTLISTADDR = (uint32_t) dQueueHead[corenum];
 
-	/* Enable interrupts: USB interrupt, error, port change, reset, suspend, NAK interrupt */
-	USB_Reg->USBINTR_D =  USBINTR_D_UsbIntEnable | USBINTR_D_UsbErrorIntEnable |
-									 USBINTR_D_PortChangeIntEnable | USBINTR_D_UsbResetEnable |
-									 USBINTR_D_SuspendEnable | USBINTR_D_NAKEnable | USBINTR_D_SofReceivedEnable;
+	// Enable interrupts
+	USB_Reg->USBINTR_D = (
+              USBINTR_D_UsbIntEnable
+            | USBINTR_D_UsbErrorIntEnable
+            | USBINTR_D_PortChangeIntEnable
+            | USBINTR_D_UsbResetEnable
+            | USBINTR_D_SuspendEnable
+            | USBINTR_D_NAKEnable
+            | USBINTR_D_SofReceivedEnable);
 
 	USB_Device_SetDeviceAddress(corenum, 0);
 
 	endpointselected[corenum] = 0;
-	for (i = 0; i < ENDPOINT_TOTAL_ENDPOINTS(corenum); i++)
+
+	for (i = 0; i < ENDPOINT_TOTAL_ENDPOINTS(corenum); i++) {
 		endpointhandle(corenum)[i] = 0;
+    }
 
 	usb_data_buffer_size[corenum] = 0;
 	usb_data_buffer_index[corenum] = 0;
@@ -155,8 +165,9 @@ void HAL_Reset(uint8_t corenum)
 	Stream_Variable[corenum].stream_total_packets = 0;
 }
 
-bool Endpoint_ConfigureEndpoint(uint8_t corenum, const uint8_t Number, const uint8_t Type,
-								const uint8_t Direction, const uint16_t Size, const uint8_t Banks)
+bool Endpoint_ConfigureEndpoint(uint8_t corenum,
+        const uint8_t Number, const uint8_t Type,
+        const uint8_t Direction, const uint16_t Size, const uint8_t Banks)
 {
 	uint8_t * ISO_Address;
 	volatile DeviceQueueHead * pdQueueHead;
@@ -171,33 +182,54 @@ bool Endpoint_ConfigureEndpoint(uint8_t corenum, const uint8_t Number, const uin
 	pdQueueHead->IntOnSetup = 1;
 	pdQueueHead->ZeroLengthTermination = 1;
 	pdQueueHead->overlay.NextTD = LINK_TERMINATE;
-
+    
+    // ENDPOINT_DIR_OUT
 	if (Direction == ENDPOINT_DIR_OUT) {
 		EndPtCtrl &= ~0x0000FFFF;
-		EndPtCtrl |= ((Type << 2) & ENDPTCTRL_RxType) | ENDPTCTRL_RxEnable | ENDPTCTRL_RxToggleReset;
+		EndPtCtrl |= (
+                ((Type << 2) & ENDPTCTRL_RxType)
+                | ENDPTCTRL_RxEnable
+                | ENDPTCTRL_RxToggleReset);
+
 		if (Type == EP_TYPE_ISOCHRONOUS) {
 			uint32_t size = 0;
-			*pEndPointCtrl = (Type << 2);					// TODO dummy to let DcdDataTransfer() knows iso transfer
-			ISO_Address = (uint8_t *) CALLBACK_HAL_GetISOBufferAddress(Number, &size);
-			DcdDataTransfer(corenum, PhyEP, ISO_Address, USB_DATA_BUFFER_TEM_LENGTH);
+
+            // TODO dummy to let DcdDataTransfer() knows iso transfer
+			*pEndPointCtrl = (Type << 2);
+
+			ISO_Address = (uint8_t *) CALLBACK_HAL_GetISOBufferAddress(Number,
+                    &size);
+			DcdDataTransfer(corenum, PhyEP, ISO_Address,
+                    USB_DATA_BUFFER_TEM_LENGTH);
 		}
 		else {
-			USB_REG(corenum)->ENDPTNAKEN |=  (1 << EP_Physical2BitPosition(PhyEP));
+			USB_REG(corenum)->ENDPTNAKEN |= 
+                (1 << EP_Physical2BitPosition(PhyEP));
 		}
 	}
-	else {	/* ENDPOINT_DIR_IN */
+
+    // ENDPOINT_DIR_IN
+	else {
 		EndPtCtrl &= ~0xFFFF0000;
-		EndPtCtrl |= ((Type << 18) & ENDPTCTRL_TxType) | ENDPTCTRL_TxEnable | ENDPTCTRL_TxToggleReset;
+		EndPtCtrl |= (
+                ((Type << 18) & ENDPTCTRL_TxType)
+                | ENDPTCTRL_TxEnable
+                | ENDPTCTRL_TxToggleReset);
+
 		if (Type == EP_TYPE_ISOCHRONOUS) {
 			uint32_t size = 0;
-			*pEndPointCtrl = (Type << 18);					// TODO dummy to let DcdDataTransfer() knows iso transfer
-			ISO_Address = (uint8_t *) CALLBACK_HAL_GetISOBufferAddress(Number, &size);
+            // TODO dummy to let DcdDataTransfer() knows iso transfer
+			*pEndPointCtrl = (Type << 18);
+			ISO_Address = (uint8_t *) CALLBACK_HAL_GetISOBufferAddress(Number,
+                    &size);
 			DcdDataTransfer(corenum, PhyEP, ISO_Address, size);
 		}
 	}
 	*pEndPointCtrl = EndPtCtrl;
 
-	endpointhandle(corenum)[Number] = (Number == ENDPOINT_CONTROLEP) ? ENDPOINT_CONTROLEP : PhyEP;
+	endpointhandle(corenum)[Number] = (Number == ENDPOINT_CONTROLEP) ?
+        ENDPOINT_CONTROLEP : PhyEP;
+
 	return true;
 }
 

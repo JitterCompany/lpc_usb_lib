@@ -34,31 +34,22 @@
 #include "../HAL.h"
 #include "../../USBTask.h"
 
-#if defined(USB_CAN_BE_DEVICE)
 #include "../../Device.h"
 
 void HAL_USBConnect(uint8_t corenum, uint32_t con)
 {
-#if defined(USB_DEVICE_ROM_DRIVER)
-	if (con) {
-		USBD_API->hw->Connect(UsbHandle, 1);
-	}
-	else {
-		USBD_API->hw->Connect(UsbHandle, 0);
-	}
-#else
 	if (con) {
 		USB_REG(corenum)->USBCMD_D |= (1 << 0);
 	}
 	else {
 		USB_REG(corenum)->USBCMD_D &= ~(1 << 0);
 	}
-#endif
 }
 
-#endif
-
-LPC_USBHS_T * const USB_REG_BASE_ADDR[LPC18_43_MAX_USB_CORE] = {LPC_USB0, LPC_USB1};
+LPC_USBHS_T * const USB_REG_BASE_ADDR[LPC18_43_MAX_USB_CORE] = {
+    LPC_USB0,
+    LPC_USB1
+};
 
 // enable state for the USB0 core
 static bool coreEnabled[1];
@@ -114,60 +105,44 @@ void HAL_USBInit(uint8_t corenum)
 void HAL_USBDeInit(uint8_t corenum, uint8_t mode)
 {
 	HAL_DisableUSBInterrupt(corenum);
-	if (mode == USB_MODE_Device) {
-		#if defined(USB_CAN_BE_HOST)
-		USB_REG(corenum)->USBSTS_H = 0xFFFFFFFF;				/* clear all current interrupts */
-		USB_REG(corenum)->PORTSC1_H &= ~(1 << 12);					/* clear port power */
-		USB_REG(corenum)->USBMODE_H =   (1 << 0);				/* set USB mode reserve */
-		#endif
-	}
-	else if (mode == USB_MODE_Host) {
-		#if defined(USB_CAN_BE_DEVICE)
-		/* Clear all pending interrupts */
-		USB_REG(corenum)->USBSTS_D   = 0xFFFFFFFF;
-		USB_REG(corenum)->ENDPTNAK   = 0xFFFFFFFF;
-		USB_REG(corenum)->ENDPTNAKEN = 0;
-		USB_REG(corenum)->ENDPTSETUPSTAT = USB_REG(corenum)->ENDPTSETUPSTAT;
-		USB_REG(corenum)->ENDPTCOMPLETE  = USB_REG(corenum)->ENDPTCOMPLETE;
-		while (USB_REG(corenum)->ENDPTPRIME) ;						/* Wait until all bits are 0 */
-		USB_REG(corenum)->ENDPTFLUSH = 0xFFFFFFFF;
-		while (USB_REG(corenum)->ENDPTFLUSH) ;		/* Wait until all bits are 0 */
-		#endif
-	}
 
-	/* Disable USB PHY if both USB cores are disabled */
-	if (coreEnabled[1 - corenum]) {
-		/* Turn off the phy (prior to PLL disabled) */
-		Chip_CREG_DisableUSB0Phy();
-	}
+    // Clear all pending interrupts
+    USB_REG(corenum)->USBSTS_D   = 0xFFFFFFFF;
+    USB_REG(corenum)->ENDPTNAK   = 0xFFFFFFFF;
+    USB_REG(corenum)->ENDPTNAKEN = 0;
+    USB_REG(corenum)->ENDPTSETUPSTAT = USB_REG(corenum)->ENDPTSETUPSTAT;
+    USB_REG(corenum)->ENDPTCOMPLETE  = USB_REG(corenum)->ENDPTCOMPLETE;
 
-	/* Power down USB clocking */
-	if (corenum == 0) {
-		Chip_Clock_Disable(CLK_MX_USB0);
-		Chip_Clock_DisableBaseClock(CLK_BASE_USB0);
-	}
-	else {
-		Chip_Clock_Disable(CLK_MX_USB1);
-		Chip_Clock_DisableBaseClock(CLK_BASE_USB1);
-	}
+    // Wait until all bits are 0
+    while (USB_REG(corenum)->ENDPTPRIME);
+    USB_REG(corenum)->ENDPTFLUSH = 0xFFFFFFFF;
 
-	/* Disable USB PLL if both USB cores are disabled */
-	if (!coreEnabled[1 - corenum]) {
-		/* Disable USB PLL */
-		Chip_Clock_DisablePLL(CGU_USB_PLL);
-	}
+    // Wait until all bits are 0
+    while (USB_REG(corenum)->ENDPTFLUSH);		
+
+    // Turn off the phy (prior to PLL disabled)
+    Chip_CREG_DisableUSB0Phy();
+
+	// Power down USB clocking
+    Chip_Clock_Disable(CLK_MX_USB0);
+    Chip_Clock_DisableBaseClock(CLK_BASE_USB0);
+
+    // Disable USB PLL
+    Chip_Clock_DisablePLL(CGU_USB_PLL);
 
 	coreEnabled[corenum] = false;
 }
 
 void HAL_EnableUSBInterrupt(uint8_t corenum)
 {
-	NVIC_EnableIRQ((corenum) ? USB1_IRQn : USB0_IRQn);	//  enable USB interrupts
+    // enable USB interrupts
+	NVIC_EnableIRQ((corenum) ? USB1_IRQn : USB0_IRQn);
 }
 
 void HAL_DisableUSBInterrupt(uint8_t corenum)
 {
-	NVIC_DisableIRQ((corenum) ? USB1_IRQn : USB0_IRQn);	//  disable USB interrupts
+    // disable USB interrupts
+	NVIC_DisableIRQ((corenum) ? USB1_IRQn : USB0_IRQn);
 }
 
 void USB0_IRQHandler(void)

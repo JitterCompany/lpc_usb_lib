@@ -293,18 +293,6 @@
 
 		/* Private Interface - For use in library only: */
 			#if !defined(__DOXYGEN__)
-		/* Function Prototypes: */
-					#if defined(__INCLUDE_FROM_USB_CONTROLLER_C)
-						#if defined(USB_CAN_BE_DEVICE)
-		static void USB_Init_Device(uint8_t corenum);
-
-						#endif
-
-						#if defined(USB_CAN_BE_HOST)
-		static void USB_Init_Host(uint8_t corenum);
-
-						#endif
-					#endif
 
 		/* Inline Functions: */
 		PRAGMA_ALWAYS_INLINE
