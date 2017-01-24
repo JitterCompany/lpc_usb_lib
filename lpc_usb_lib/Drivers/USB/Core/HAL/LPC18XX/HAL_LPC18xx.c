@@ -31,7 +31,6 @@
 
 #if defined(__LPC18XX__) || defined(__LPC43XX__)
 
-#include "lpc43xx_cgu.h"
 #include "../HAL.h"
 #include "../../USBTask.h"
 
