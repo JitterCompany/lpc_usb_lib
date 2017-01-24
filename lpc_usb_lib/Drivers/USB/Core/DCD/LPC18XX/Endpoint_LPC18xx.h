@@ -180,7 +180,13 @@ extern uint8_t usb_RomDriver_HID_buffer[ROMDRIVER_HID_MEM_SIZE];
 				#define PORTSC_D_PortForceFullspeedConnect  0x01000000UL		/* Force Device on Fullspeed mode (disable chirp sequences) - EHCI derivation */
 				#define PORTSC_D_PortSpeed                  0x0C000000UL		/* Device Speed - EHCI derivation */
 
+/*---------- OTGSC --------------*/
+				#define OTGSC_VBUS_DISCHARGE                (0x1 << 0)
+				#define OTGSC_OTG_TERMINATION               (0x1 << 3)
+
 /*---------- USBMODE_D ----------*/
+
+				#define USBMODE_D_CM1_0_DEVICE              (0x2 << 0)
 /*---------- ENDPSETUPSTAT ----------*/
 
 /*---------- ENDPTPRIME ----------*/

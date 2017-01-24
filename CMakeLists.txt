@@ -58,7 +58,7 @@ elseif("${MCU_PLATFORM}" STREQUAL "43xx_m0")
 
     CPM_AddModule("lpc_chip_43xx_m0"
         GIT_REPOSITORY "https://github.com/JitterCompany/lpc_chip_43xx_m0.git"
-        GIT_TAG "1.0")
+        GIT_TAG "1.0.1")
 
 elseif("${MCU_PLATFORM}" STREQUAL "11uxx_m0")
     message(STATUS "lpc_usb_lib: Platform '11uxx_m0' detected")

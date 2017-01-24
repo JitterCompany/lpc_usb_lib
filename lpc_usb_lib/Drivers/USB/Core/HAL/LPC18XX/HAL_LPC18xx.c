@@ -61,130 +61,57 @@ void HAL_USBConnect(uint8_t corenum, uint32_t con)
 
 LPC_USBHS_T * const USB_REG_BASE_ADDR[LPC18_43_MAX_USB_CORE] = {LPC_USB0, LPC_USB1};
 
-/* Support for USB0 and USB1, 2 cores */
-static bool coreEnabled[2];
-/*
+// enable state for the USB0 core
+static bool coreEnabled[1];
+
 void HAL_USBInit(uint8_t corenum)
 {
-	/* Just exit if already enabled *
-	if (!coreEnabled[corenum]) {
-		/* if other code is not enabled, the enable USB PLL *
-		if (!coreEnabled[1 - corenum]) {
-			/* Neither core is enabled, so enable USB PLL first *
-			Chip_Clock_EnablePLL(CGU_USB_PLL);
+    if(corenum)
+    {
+        return; // USB1 not supported
+    }
+    if(!coreEnabled[corenum]) {
 
-			/* Wait for PLL lock *
-			while (!(Chip_Clock_GetPLLStatus(CGU_USB_PLL) & CGU_PLL_LOCKED));
-		}
+        Chip_Clock_DisablePLL(CGU_USB_PLL);
 
-		if (corenum == 0) {
-			/* For core 0, enable USB0 base clock *
-			Chip_Clock_EnableBaseClock(CLK_BASE_USB0);
-			Chip_Clock_EnableOpts(CLK_MX_USB0, true, true, 1);
+        // setup and enable 480Mhz USB pll
+        const CGU_USBAUDIO_PLL_SETUP_T pll_setup = {
+            .ctrl = (1 << 2) | (1 << 3) | (1 << 4), // DIRECTI, DIRECTO, CLKEN
+            .mdiv = 0x06167FFA,                     // See user manual 13.8.3
+            .ndiv = 0x00202062,                     // WTF: Not used? see DIRECTI/O
+            .fract = 0,                             // Not used for USB
+            .freq = 480000000
+        };
+        Chip_Clock_SetupPLL(CLKIN_CRYSTAL, CGU_USB_PLL, &pll_setup);
+        while (!(Chip_Clock_GetPLLStatus(CGU_USB_PLL) & CGU_PLL_LOCKED));
 
-			/* Turn on the phy *
-			Chip_CREG_EnableUSB0Phy();
-		}
-		else {
-			/* For core 1, enable USB1 base clock *
-			Chip_Clock_EnableBaseClock(CLK_BASE_USB1);
-			Chip_Clock_EnableOpts(CLK_MX_USB1, true, true, 1);
 
-			/* Turn on the phy *
-			Chip_CREG_EnableUSB0Phy();
-#if defined(USB_CAN_BE_HOST)
-			/* enable USB1_DP and USB1_DN on chip FS phy *
-			if (corenum && USB_CurrentMode[corenum] == USB_MODE_Host)LPC_SCU->SFSUSB = 0x16;
+        // enable USB0 base clock
+        Chip_Clock_EnableBaseClock(CLK_BASE_USB0);
+        Chip_Clock_EnableOpts(CLK_MX_USB0, true, true, 1);
+
+        // Turn on the USB phy
+        Chip_CREG_EnableUSB0Phy();
+        coreEnabled[corenum] = true;
+    }
+
+    // reset the controller
+    USB_REG(corenum)->USBCMD_D = USBCMD_D_Reset;
+
+    // wait for reset to complete
+    while (USB_REG(corenum)->USBCMD_D & USBCMD_D_Reset);
+
+    /* Program the controller to be the USB device controller */
+    USB_REG(corenum)->USBMODE_D = USBMODE_D_CM1_0_DEVICE;
+
+    // NOTE: do NOT use OTGSC_VBUS_DISCHARGE if using a voltage divider on vbus
+    LPC_USB0->OTGSC = OTGSC_OTG_TERMINATION;
+#if (USB_FORCED_FULLSPEED)
+    LPC_USB0->PORTSC1_D |= PORTSC_D_PortForceFullspeedConnect;
 #endif
-#if defined(USB_CAN_BE_DEVICE)
-			/* enable USB1_DP and USB1_DN on chip FS phy *
-			if (corenum && USB_CurrentMode[corenum] == USB_MODE_Device)LPC_SCU->SFSUSB = 0x12;
-#endif
-			LPC_USB1->PORTSC1_D |= (1 << 24);
-		}
-
-		coreEnabled[corenum] = true;
-	}
-
-#if defined(USB_CAN_BE_DEVICE) && (!defined(USB_DEVICE_ROM_DRIVER))
-	/* reset the controller *
-	USB_REG(corenum)->USBCMD_D = USBCMD_D_Reset;
-	/* wait for reset to complete *
-	while (USB_REG(corenum)->USBCMD_D & USBCMD_D_Reset) ;
-
-	/* Program the controller to be the USB device controller *
-	USB_REG(corenum)->USBMODE_D =   (0x2 << 0) /*| (1<<4)*//*| (1<<3)*;
-	if (corenum == 0) {
-		/* set OTG transcever in proper state, device is present
-		   on the port(CCS=1), port enable/disable status change(PES=1). 
-		LPC_USB0->OTGSC = (1 << 3) | (1 << 0) /*| (1<<16)| (1<<24)| (1<<25)| (1<<26)| (1<<27)| (1<<28)| (1<<29)| (1<<30)*;
-		#if (USB_FORCED_FULLSPEED)
-		LPC_USB0->PORTSC1_D |= (1 << 24);
-		#endif
-	}
-	HAL_Reset(corenum);
-#endif
+    HAL_Reset(corenum);
 }
-*/
 
-void HAL_USBInit(uint8_t corenum)
- {
-	 if(corenum)
-	 {
-		/* connect CLK_USB1 to 60 MHz clock */
-		CGU_EntityConnect(CGU_CLKSRC_PLL1, CGU_BASE_USB1); /* FIXME Run base BASE_USB1_CLK clock from PLL1 (assume PLL1 is 60 MHz, no division required) */
-	    /* Turn on the phy */
-	    LPC_CREG->CREG0 &= ~(1<<5);
-		#if defined(USB_CAN_BE_HOST)
-			/* enable USB1_DP and USB1_DN on chip FS phy */
-			LPC_SCU->SFSUSB = 0x16;
-		#endif
-		#if defined(USB_CAN_BE_DEVICE)
-			/* enable USB1_DP and USB1_DN on chip FS phy */
-			LPC_SCU->SFSUSB = 0x12;
-		#endif
-			LPC_USB1->PORTSC1_D |= (1<<24);
-	 }
-	 else
-	 {
-		 /* Set up USB0 clock */
-		 /* Disable PLL first */
-		 CGU_EnableEntity(CGU_CLKSRC_PLL0, DISABLE);
-		 /* the usb core require output clock = 480MHz */
-		#if defined(__LPC18XX__)
-		 if(CGU_SetPLL0(XTAL_FREQ, 480000000, 0.98, 1.02) != CGU_ERROR_SUCCESS)
-			 while(1);
-		#elif defined(__LPC43XX__)
-		 if(CGU_SetPLL0() != CGU_ERROR_SUCCESS)
-			 while(1);
-		#endif
-		 CGU_EntityConnect(CGU_CLKSRC_XTAL_OSC, CGU_CLKSRC_PLL0);
-		 /* Enable PLL after all setting is done */
-		 CGU_EnableEntity(CGU_CLKSRC_PLL0, ENABLE);
-		/* Turn on the phy */
-		LPC_CREG->CREG0 &= ~(1<<5);
-	 }
-
-#if defined(USB_CAN_BE_DEVICE)&&(!defined(USB_DEVICE_ROM_DRIVER))
-	/* reset the controller */
-	USB_REG(corenum)->USBCMD_D = USBCMD_D_Reset;
-	/* wait for reset to complete */
-	while (USB_REG(corenum)->USBCMD_D & USBCMD_D_Reset);
-
-	/* Program the controller to be the USB device controller */
-	USB_REG(corenum)->USBMODE_D =   (0x2<<0)/*| (1<<4)*//*| (1<<3)*/ ;
-	if(corenum==0)
-	{
-		/* set OTG transcever in proper state, device is present
-		on the port(CCS=1), port enable/disable status change(PES=1). */
-		LPC_USB0->OTGSC = (1<<3) | (1<<0) /*| (1<<16)| (1<<24)| (1<<25)| (1<<26)| (1<<27)| (1<<28)| (1<<29)| (1<<30)*/;
-		#if (USB_FORCED_FULLSPEED)
-			LPC_USB0->PORTSC1_D |= (1<<24);
-		#endif
-	}
-	HAL_Reset(corenum);
-#endif
- }
 void HAL_USBDeInit(uint8_t corenum, uint8_t mode)
 {
 	HAL_DisableUSBInterrupt(corenum);
