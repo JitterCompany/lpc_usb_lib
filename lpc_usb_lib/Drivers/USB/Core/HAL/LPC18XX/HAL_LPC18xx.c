@@ -147,38 +147,11 @@ void HAL_DisableUSBInterrupt(uint8_t corenum)
 
 void USB0_IRQHandler(void)
 {
-	if (USB_CurrentMode[0] == USB_MODE_Host) {
-		#ifdef USB_CAN_BE_HOST
-		HcdIrqHandler(0);
-		#endif
-	}
-	if (USB_CurrentMode[0] == USB_MODE_Device) {
-		#ifdef USB_CAN_BE_DEVICE
-			#ifdef USB_DEVICE_ROM_DRIVER
-		UsbdRom_IrqHandler();
-			#else
-		DcdIrqHandler(0);
-			#endif
-		#endif
-	}
-}
+	if (USB_CurrentMode[0] != USB_MODE_Device) {
+        return;
+    }
 
-void USB1_IRQHandler(void)
-{
-	if (USB_CurrentMode[1] == USB_MODE_Host) {
-		#ifdef USB_CAN_BE_HOST
-		HcdIrqHandler(1);
-		#endif
-	}
-	if (USB_CurrentMode[1] == USB_MODE_Device) {
-		#ifdef USB_CAN_BE_DEVICE
-			#ifdef USB_DEVICE_ROM_DRIVER
-		UsbdRom_IrqHandler();
-			#else
-		DcdIrqHandler(1);
-			#endif
-		#endif
-	}
+    DcdIrqHandler(0);
 }
 
 #endif /*__LPC18XX__*/

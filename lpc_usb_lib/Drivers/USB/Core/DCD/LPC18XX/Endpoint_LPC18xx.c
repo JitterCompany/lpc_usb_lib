@@ -326,29 +326,33 @@ void DcdPrepareTD(DeviceTransferDescriptor *pDTD, uint8_t *pData, uint32_t lengt
 	//	pDTD->BufferPage[4] = ((uint32_t) pData + 0x4000) & 0xfffff000;
 }
 
-void DcdDataTransfer(uint8_t corenum, uint8_t PhyEP, uint8_t *pData, uint32_t length)
+void DcdDataTransfer(uint8_t corenum,
+        uint8_t PhyEP, uint8_t *pData, uint32_t length)
 {
-	DeviceTransferDescriptor * pDTD = (DeviceTransferDescriptor *) &dTransferDescriptor[corenum][PhyEP];
-	volatile DeviceQueueHead * pdQueueHead = &(dQueueHead[corenum][PhyEP]);
-	while ( USB_REG(corenum)->ENDPTSTAT & _BIT(EP_Physical2BitPosition(PhyEP) ) ) {	/* Endpoint is already primed */
-	}
+	DeviceTransferDescriptor *pDTD = (DeviceTransferDescriptor *)
+        &dTransferDescriptor[corenum][PhyEP];
+	volatile DeviceQueueHead *pdQueueHead = &(dQueueHead[corenum][PhyEP]);
 
-	/* Zero out the device transfer descriptors */
-	memset((void *) pDTD, 0, sizeof(DeviceTransferDescriptor));
+    // Wait while endpoint is already primed
+	while(USB_REG(corenum)->ENDPTSTAT & _BIT(EP_Physical2BitPosition(PhyEP)));
 
-	if (((ENDPTCTRL_REG(corenum, PhyEP / 2) >> 2) & EP_TYPE_MASK) == EP_TYPE_ISOCHRONOUS) {	// iso out endpoint
+	// reset the device transfer descriptor
+	memset((void *)pDTD, 0, sizeof(DeviceTransferDescriptor));
+    pDTD->NextTD = LINK_TERMINATE;
+
+    // iso out endpoint
+	if (((ENDPTCTRL_REG(corenum, PhyEP / 2) >> 2) & EP_TYPE_MASK)
+            == EP_TYPE_ISOCHRONOUS) {
 		uint32_t mult = (USB_DATA_BUFFER_TEM_LENGTH + 1024) / 1024;
-		pDTD->NextTD = LINK_TERMINATE;
+		pdQueueHead->Mult = mult;
+
+	// iso in endpoint
+    } else if (((ENDPTCTRL_REG(corenum, PhyEP / 2) >> 18) & EP_TYPE_MASK)
+            == EP_TYPE_ISOCHRONOUS) {
+		uint32_t mult = (USB_DATA_BUFFER_TEM_LENGTH + 1024) / 1024;
 		pdQueueHead->Mult = mult;
 	}
-	else if (((ENDPTCTRL_REG(corenum, PhyEP / 2) >> 18) & EP_TYPE_MASK) == EP_TYPE_ISOCHRONOUS) {// iso in endpoint
-		uint32_t mult = (USB_DATA_BUFFER_TEM_LENGTH + 1024) / 1024;
-		pDTD->NextTD = LINK_TERMINATE;
-		pdQueueHead->Mult = mult;
-	}
-	else {																		// other endpoint types
-		pDTD->NextTD = LINK_TERMINATE;	/* The next DTD pointer is INVALID */
-	}
+
 	pDTD->TotalBytes = length;
 	pDTD->IntOnComplete = 1;
 	pDTD->Active = 1;
@@ -359,88 +363,106 @@ void DcdDataTransfer(uint8_t corenum, uint8_t PhyEP, uint8_t *pData, uint32_t le
 	pDTD->BufferPage[3] = ((uint32_t) pData + 0x3000) & 0xfffff000;
 	pDTD->BufferPage[4] = ((uint32_t) pData + 0x4000) & 0xfffff000;
 
-	pdQueueHead->overlay.Halted = 0;	/* this should be in USBInt */
-	pdQueueHead->overlay.Active = 0;	/* this should be in USBInt */
+	pdQueueHead->overlay.Halted = 0;	// this should be in USBInt
+	pdQueueHead->overlay.Active = 0;	// this should be in USBInt
 	pdQueueHead->overlay.NextTD = (uint32_t) &dTransferDescriptor[corenum][PhyEP];
 	pdQueueHead->TransferCount = length;
 
-	/* prime the endpoint for transmit */
+	// prime the endpoint for transmit
 	USB_REG(corenum)->ENDPTPRIME |= _BIT(EP_Physical2BitPosition(PhyEP) );
 }
 
 void TransferCompleteISR(uint8_t corenum)
 {
-	uint8_t * ISO_Address;
- 	LPC_USBHS_T *	USB_Reg = USB_REG(corenum);
-	STREAM_VAR_t * current_stream = &Stream_Variable[corenum];
-	uint32_t ENDPTCOMPLETE = USB_Reg->ENDPTCOMPLETE;
-	USB_Reg->ENDPTCOMPLETE = ENDPTCOMPLETE;
-	if (ENDPTCOMPLETE) {
-		uint8_t n;
-		for (n = 0; n < USED_PHYSICAL_ENDPOINTS(corenum) / 2; n++) {	/* LOGICAL */
-			if ( ENDPTCOMPLETE & _BIT(n) ) {/* OUT */
-				if (((ENDPTCTRL_REG(corenum, n) >> 2) & EP_TYPE_MASK) == EP_TYPE_ISOCHRONOUS) {	// iso out endpoint
-					uint32_t size = dQueueHead[corenum][2 * n].TransferCount;
-                                        size -= dQueueHead[corenum][2 * n].overlay.TotalBytes;
-					// copy to share buffer
-					ISO_Address = (uint8_t *) CALLBACK_HAL_GetISOBufferAddress(n, &size);
-					DcdDataTransfer(corenum, 2 * n, ISO_Address, USB_DATA_BUFFER_TEM_LENGTH);
-				}
-				else {
-					
-					uint32_t tem = dQueueHead[corenum][2 * n].overlay.TotalBytes;
-					dQueueHead[corenum][2 * n].TransferCount -= tem;
+    uint8_t *ISO_Address;
+    LPC_USBHS_T *USB_Reg = USB_REG(corenum);
+    STREAM_VAR_t *current_stream = &Stream_Variable[corenum];
+    uint32_t ENDPTCOMPLETE = USB_Reg->ENDPTCOMPLETE;
+    USB_Reg->ENDPTCOMPLETE = ENDPTCOMPLETE;
+    if (!ENDPTCOMPLETE) {
+        return;
+    }
 
-					if (current_stream->stream_total_packets > 0) {
-						if (current_stream->stream_remain_packets > 0) {
-							uint32_t cnt = dQueueHead[corenum][2 * n].TransferCount;
-							Endpoint_Streaming(corenum,(uint8_t *) current_stream->stream_buffer_address,
-									current_stream->stream_packet_size,
-									current_stream->stream_remain_packets,
-											   0);
-							dQueueHead[corenum][2 * n].TransferCount = cnt;
-						}
-						else {
-							current_stream->stream_total_packets = 0;
-							dQueueHead[corenum][2 * n].IsOutReceived = 1;
-						}
-					}
-					else {
-						//stream_total_packets = 0;
-						dQueueHead[corenum][2 * n].IsOutReceived = 1;
-					}
-					if (n == 0) {
-						usb_data_buffer_size[corenum] = dQueueHead[corenum][2 * n].TransferCount;
-					}
-					else {
-						usb_data_buffer_OUT_size[corenum] = dQueueHead[corenum][2 * n].TransferCount;
-					}
-				}
-				EVENT_USB_Device_TransferComplete(n, 0);
-			}
-			if ( ENDPTCOMPLETE & _BIT( (n + 16) ) ) {	/* IN */
-				if (((ENDPTCTRL_REG(corenum, n) >> 18) & EP_TYPE_MASK) == EP_TYPE_ISOCHRONOUS) {	// iso in endpoint
-					uint32_t size;
-					ISO_Address = (uint8_t *) CALLBACK_HAL_GetISOBufferAddress(n, &size);
-					DcdDataTransfer(corenum, 2 * n + 1, ISO_Address, size);
-				}
-				else {
-					if (current_stream->stream_remain_packets > 0) {
-						uint32_t cnt = dQueueHead[corenum][2 * n].TransferCount;
-						Endpoint_Streaming(corenum, (uint8_t *) current_stream->stream_buffer_address,
-								current_stream->stream_packet_size,
-								current_stream->stream_remain_packets,
-										   0);
-						dQueueHead[corenum][2 * n].TransferCount = cnt;
-					}
-					else {
-						current_stream->stream_total_packets = 0;
-					}
-				}
-				EVENT_USB_Device_TransferComplete(n, 1);
-			}
-		}
-	}
+    // Loop over logical endpoints
+    for (uint8_t n = 0; n < USED_PHYSICAL_ENDPOINTS(corenum) / 2; n++) {
+        volatile DeviceQueueHead *pdQueueHead = &(dQueueHead[corenum][2*n]);
+
+        // OUT endpoint
+        if (ENDPTCOMPLETE & _BIT(n)) {
+            // iso out endpoint
+            if (((ENDPTCTRL_REG(corenum, n) >> 2) & EP_TYPE_MASK)
+                    == EP_TYPE_ISOCHRONOUS) {
+                uint32_t size = pdQueueHead->TransferCount;
+                size -= pdQueueHead->overlay.TotalBytes;
+                // copy to share buffer
+                ISO_Address =
+                    (uint8_t *) CALLBACK_HAL_GetISOBufferAddress(n, &size);
+                DcdDataTransfer(corenum,
+                        2 * n, ISO_Address, USB_DATA_BUFFER_TEM_LENGTH);
+            }
+            else {
+                pdQueueHead->TransferCount -= pdQueueHead->overlay.TotalBytes;
+
+                if (current_stream->stream_total_packets > 0) {
+                    if (current_stream->stream_remain_packets > 0) {
+                        uint32_t cnt = pdQueueHead->TransferCount;
+                        Endpoint_Streaming(corenum,
+                                (uint8_t *)current_stream->stream_buffer_address,
+                                current_stream->stream_packet_size,
+                                current_stream->stream_remain_packets,
+                                0);
+                        pdQueueHead->TransferCount = cnt;
+                    }
+                    else {
+                        current_stream->stream_total_packets = 0;
+                        pdQueueHead->IsOutReceived = 1;
+                    }
+                }
+                else {
+                    //stream_total_packets = 0;
+                    pdQueueHead->IsOutReceived = 1;
+                }
+                if (n == 0) {
+                    usb_data_buffer_size[corenum] =
+                        pdQueueHead->TransferCount;
+                }
+                else {
+                    usb_data_buffer_OUT_size[corenum] =
+                        pdQueueHead->TransferCount;
+                }
+            }
+            EVENT_USB_Device_TransferComplete(n, 0);
+        }
+
+        // IN endpoint
+        if (ENDPTCOMPLETE & _BIT((n + 16))) {
+
+            // iso in endpoint
+            if (((ENDPTCTRL_REG(corenum, n) >> 18) & EP_TYPE_MASK)
+                    == EP_TYPE_ISOCHRONOUS) {
+                uint32_t size;
+                ISO_Address =
+                    (uint8_t *)CALLBACK_HAL_GetISOBufferAddress(n, &size);
+                DcdDataTransfer(corenum, 2 * n + 1, ISO_Address, size);
+            }
+            else {
+
+                if (current_stream->stream_remain_packets > 0) {
+                    uint32_t cnt = pdQueueHead->TransferCount;
+                    Endpoint_Streaming(corenum,
+                            (uint8_t *)current_stream->stream_buffer_address,
+                            current_stream->stream_packet_size,
+                            current_stream->stream_remain_packets,
+                            0);
+                    pdQueueHead->TransferCount = cnt;
+                }
+                else {
+                    current_stream->stream_total_packets = 0;
+                }
+            }
+            EVENT_USB_Device_TransferComplete(n, 1);
+        }
+    }
 }
 
 void Endpoint_GetSetupPackage(uint8_t corenum, uint8_t *pData)
@@ -451,103 +473,120 @@ void Endpoint_GetSetupPackage(uint8_t corenum, uint8_t *pData)
 	/* Below fix is to prevent Endpoint_Read_Control_Stream_LE()
 	 * from getting wrong data*/
 
-	if (
-		(ctrlrq->wLength != 0)
-		) {
-		pdQueueHead->IsOutReceived = 0;
-	}
+    if (ctrlrq->wLength != 0) {
+        pdQueueHead->IsOutReceived = 0;
+    }
 }
 
 void DcdIrqHandler(uint8_t corenum)
 {
-	uint32_t USBSTS_D;
-	LPC_USBHS_T *	USB_Reg = USB_REG(corenum);
-	uint32_t t = USB_Reg->USBINTR_D;
+	LPC_USBHS_T *USB_Reg = USB_REG(corenum);
 
-	USBSTS_D = USB_Reg->USBSTS_D & t;	/* Device Interrupt Status */
-	if (USBSTS_D == 0) {/* avoid to clear disabled interrupt source */
+    // Device Interrupt Status
+	uint32_t active_interrupts = USB_Reg->USBSTS_D & USB_Reg->USBINTR_D;
+
+    // avoid to clear disabled interrupt source
+	if (active_interrupts == 0) {
 		return;
 	}
 
-	USB_Reg->USBSTS_D = USBSTS_D;	/* Acknowledge Interrupt */
+    // Acknowledge Interrupt
+	USB_Reg->USBSTS_D = active_interrupts;
 
-	/* Process Interrupt Sources */
-	if (USBSTS_D & USBSTS_D_UsbInt) {
+	// Process Interrupt Sources
+	if (active_interrupts & USBSTS_D_UsbInt) {
 		if (USB_Reg->ENDPTSETUPSTAT) {
-			//			memcpy(SetupPackage, dQueueHead[0].SetupPackage, 8);
-			/* Will be cleared by Endpoint_ClearSETUP */
+			// memcpy(SetupPackage, dQueueHead[0].SetupPackage, 8);
+			// Will be cleared by Endpoint_ClearSETUP
 		}
 
 		if (USB_Reg->ENDPTCOMPLETE) {
 			TransferCompleteISR(corenum);
 		}
 	}
-
-	if (USBSTS_D & USBSTS_D_NAK) {					/* NAK */
+    
+    // NAK
+	if (active_interrupts & USBSTS_D_NAK) {
 		uint32_t ENDPTNAK = USB_Reg->ENDPTNAK;
-                uint32_t en = USB_Reg->ENDPTNAKEN;
-                ENDPTNAK &= en;
+        uint32_t en = USB_Reg->ENDPTNAKEN;
+        ENDPTNAK &= en;
 		USB_Reg->ENDPTNAK = ENDPTNAK;
 
-		if (ENDPTNAK) {	/* handle NAK interrupts */
-			uint8_t LogicalEP;
-			for (LogicalEP = 0; LogicalEP < USED_PHYSICAL_ENDPOINTS(corenum) / 2; LogicalEP++)
-				if (ENDPTNAK & _BIT(LogicalEP)) {	/* Only OUT Endpoint is NAK enable */
-					uint8_t PhyEP = 2 * LogicalEP;
-					if ( !(USB_Reg->ENDPTSTAT & _BIT(LogicalEP)) ) {/* Is In ready */
-						/* Check read OUT flag */
-						if (!dQueueHead[corenum][PhyEP].IsOutReceived) {
+        // handle NAK interrupts
+        if (ENDPTNAK) {
+            uint8_t LogicalEP = 0;
+            for(;LogicalEP < USED_PHYSICAL_ENDPOINTS(corenum)/2;LogicalEP++) {
 
-							if (PhyEP == 0) {
-								usb_data_buffer_size[corenum] = 0;
-								USB_Reg->ENDPTNAKEN &= ~(1 << 0);
-								DcdDataTransfer(corenum, PhyEP, usb_data_buffer[corenum], 512);
-							}
-							else {
-								if (Stream_Variable[corenum].stream_total_packets == 0) {
-									usb_data_buffer_OUT_size[corenum] = 0;
-									/* Clear NAK */
-									USB_Reg->ENDPTNAKEN &= ~(1 << LogicalEP);
-									DcdDataTransfer(corenum, PhyEP, usb_data_buffer_OUT[corenum], 1024);
-								}
-							}
-						}
-					}
-				}
-		}
+                // Only OUT Endpoint is NAK enable
+                if (!(ENDPTNAK & _BIT(LogicalEP))) {
+                    continue;
+                }
+                uint8_t PhyEP = 2 * LogicalEP;
+
+                // Skip if in ready
+                if (USB_Reg->ENDPTSTAT & _BIT(LogicalEP)) {
+                    continue;
+                }
+
+                // Skip if out received
+                if (dQueueHead[corenum][PhyEP].IsOutReceived) {
+                    continue;
+                }
+
+                if (PhyEP == 0) {
+                    usb_data_buffer_size[corenum] = 0;
+                    USB_Reg->ENDPTNAKEN &= ~(1 << 0);
+                    DcdDataTransfer(corenum,
+                            PhyEP, usb_data_buffer[corenum], 512);
+
+                } else if (Stream_Variable[corenum].stream_total_packets==0) {
+                    usb_data_buffer_OUT_size[corenum] = 0;
+
+                    // Clear NAK
+                    USB_Reg->ENDPTNAKEN &= ~(1 << LogicalEP);
+                    DcdDataTransfer(corenum,
+                            PhyEP, usb_data_buffer_OUT[corenum], 1024);
+                }
+            }
+        }
 	}
-
-	if (USBSTS_D & USBSTS_D_SofReceived) {					/* Start of Frame Interrupt */
+    
+    // Start of Frame
+	if (active_interrupts & USBSTS_D_SofReceived) {
 		EVENT_USB_Device_StartOfFrame();
 	}
-
-	if (USBSTS_D & USBSTS_D_ResetReceived) {					/* Reset */
+    
+    // Reset
+	if (active_interrupts & USBSTS_D_ResetReceived) {
 		HAL_Reset(corenum);
 		USB_DeviceState[corenum] = DEVICE_STATE_Default;
-		Endpoint_ConfigureEndpoint(corenum,
-									 ENDPOINT_CONTROLEP,
-								   EP_TYPE_CONTROL,
-								   ENDPOINT_DIR_OUT,
-								   USB_Device_ControlEndpointSize,
-								   0);
-		Endpoint_ConfigureEndpoint(corenum, 
-									 ENDPOINT_CONTROLEP,
-								   EP_TYPE_CONTROL,
-								   ENDPOINT_DIR_IN,
-								   USB_Device_ControlEndpointSize,
-								   0);
+        Endpoint_ConfigureEndpoint(corenum,
+                ENDPOINT_CONTROLEP,
+                EP_TYPE_CONTROL,
+                ENDPOINT_DIR_OUT,
+                USB_Device_ControlEndpointSize,
+                0);
+        Endpoint_ConfigureEndpoint(corenum, 
+                ENDPOINT_CONTROLEP,
+                EP_TYPE_CONTROL,
+                ENDPOINT_DIR_IN,
+                USB_Device_ControlEndpointSize,
+                0);
 	}
-
-	if (USBSTS_D & USBSTS_D_SuspendInt) {					/* Suspend */
-
-	}
-
-	if (USBSTS_D & USBSTS_D_PortChangeDetect) {					/* Resume */
+    
+    // Suspend
+	if (active_interrupts & USBSTS_D_SuspendInt) {
 
 	}
 
-	if (USBSTS_D & USBSTS_D_UsbErrorInt) {					/* Error Interrupt */
-		// while(1){}
+    // Resume
+	if (active_interrupts & USBSTS_D_PortChangeDetect) {
+
+	}
+
+    // Error
+	if (active_interrupts & USBSTS_D_UsbErrorInt) {
+
 	}
 }
 

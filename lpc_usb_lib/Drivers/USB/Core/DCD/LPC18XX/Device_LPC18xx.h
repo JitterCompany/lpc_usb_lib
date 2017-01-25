@@ -196,7 +196,8 @@ static inline void USB_Device_SetFullSpeed(void)
  */
 static inline void USB_Device_SetDeviceAddress(uint8_t corenum, const uint8_t Address) ATTR_ALWAYS_INLINE;
 
-static inline void USB_Device_SetDeviceAddress(uint8_t corenum, const uint8_t Address)
+static inline void USB_Device_SetDeviceAddress(uint8_t corenum,
+        const uint8_t Address)
 {
 	USB_REG(corenum)->DEVICEADDR = USBDEV_ADDR(Address);
 	USB_REG(corenum)->DEVICEADDR |= USBDEV_ADDR_AD;

@@ -227,12 +227,12 @@ extern uint8_t usb_RomDriver_HID_buffer[ROMDRIVER_HID_MEM_SIZE];
 				#define EP_Physical2BitPosition(n) ( EP_Physical2Logical(n) + ((n) % 2 ? 16 : 0 ) )
 //				#define LINK_TERMINATE      1
 
-/*---------- Device TD ----------*/
+//---------- Device TD ----------//
 typedef struct {
-	/*---------- Word 1 ----------*/
+	//---------- Word 1 ----------//
 	uint32_t NextTD;
 
-	/*---------- Word 2 ----------*/
+	//---------- Word 2 ----------//
 	uint32_t : 3;
 	__IO uint32_t TransactionErr : 1;
 	uint32_t : 1;
@@ -244,7 +244,9 @@ typedef struct {
 	uint32_t : 3;
 	__IO uint32_t IntOnComplete : 1;
 	__IO uint32_t TotalBytes : 15;
-	uint32_t : 0;					/* force next member alinged on the next word */
+
+    // force next member alinged on the next word
+	uint32_t : 0;
 
 	/*---------- Word 3 - 7 ----------*/
 	uint32_t BufferPage[5];
@@ -254,7 +256,7 @@ typedef struct {
 
 /*---------- Device Qhd ----------*/
 typedef struct {
-	/*---------- Word 1: Capability/Characteristics ----------*/
+	//---------- Word 1: Capability/Characteristics ----------//
 	uint32_t : 15;
 	__IO uint32_t IntOnSetup : 1;
 	uint32_t MaxPacketSize : 11;
@@ -263,17 +265,22 @@ typedef struct {
 	uint32_t Mult : 2;
 	uint32_t : 0;
 
-	/*---------- Word 2 ----------*/
+	//---------- Word 2 ----------//
 	uint32_t currentTD;
 
-	/*---------- Word 3 - 10 ----------*/
+	//---------- Word 3 - 10 ---------//
 	__IO DeviceTransferDescriptor overlay;
 
-	/*---------- Word 11-12 ----------*/
+	//---------- Word 11-12 ----------//
 	__IO uint8_t SetupPackage[8];
-
+    
+    // --- End of official dQH as described in datasheet 25.9.1 --- //
+    
+    // --- Word 13-16 are library-specific --- //
 	uint16_t TransferCount;
-	__IO uint16_t IsOutReceived;				// === TODO: IsOutReceived should be refractor to QueueHead Status ===
+
+    // TODO: IsOutReceived should be refactored to QueueHead Status
+	__IO uint16_t IsOutReceived;
 	uint16_t reserved[6];
 } DeviceQueueHead, *PDeviceQueueHead;
 
@@ -524,8 +531,8 @@ static inline bool Endpoint_IsSETUPReceived(uint8_t corenum)
 }
 
 /**
- *  @brief  Clears a received SETUP packet on the currently selected CONTROL type endpoint, freeing up the
- *  endpoint for the next packet.
+ *  @brief  Clears a received SETUP packet on the currently selected
+ *  CONTROL type endpoint, freeing up the endpoint for the next packet.
  *
  *  @ingroup Group_EndpointPacketManagement_LPC18xx
  *
@@ -544,8 +551,9 @@ static inline void Endpoint_ClearSETUP(uint8_t corenum)
 }
 
 /**
- *  @brief  Sends an IN packet to the host on the currently selected endpoint, freeing up the endpoint for the
- *  next packet and switching to the alternative endpoint bank if double banked.
+ *  @brief  Sends an IN packet to the host on the currently selected endpoint, 
+ *  freeing up the endpoint for the next packet and switching to
+ *  the alternative endpoint bank if double banked.
  *
  *  @ingroup Group_EndpointPacketManagement_LPC18xx
  *  @param  corenum :        ID Number of USB Core to be processed.
@@ -555,9 +563,14 @@ static inline void Endpoint_ClearIN(uint8_t corenum) ATTR_ALWAYS_INLINE;
 
 static inline void Endpoint_ClearIN(uint8_t corenum)
 {
-	uint8_t PhyEP = endpointselected[corenum] == ENDPOINT_CONTROLEP ? 1 : (endpointhandle(corenum)[endpointselected[corenum]]);
+	uint8_t PhyEP =
+        (endpointselected[corenum] == ENDPOINT_CONTROLEP)
+        ? 1 : (endpointhandle(corenum)[endpointselected[corenum]]);
+
 	if (endpointselected[corenum] == ENDPOINT_CONTROLEP) {
-		DcdDataTransfer(corenum, PhyEP, (uint8_t *)usb_data_buffer[corenum], usb_data_buffer_index[corenum]);
+		DcdDataTransfer(corenum,
+                PhyEP, (uint8_t *)usb_data_buffer[corenum],
+                usb_data_buffer_index[corenum]);
 		usb_data_buffer_index[corenum] = 0;
 	}
     // Since we use Endpoint_sendData we don't need this part

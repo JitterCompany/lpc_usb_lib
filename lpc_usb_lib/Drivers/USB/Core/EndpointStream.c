@@ -66,13 +66,13 @@ uint8_t Endpoint_Write_Stream_LE(uint8_t corenum,
 								 uint16_t Length,
 								 uint16_t *const BytesProcessed)
 {
-	uint16_t i;
-
-	while ( !Endpoint_IsINReady(corenum) ) {	/*-- Wait until ready --*/
+	// Wait until ready
+	while (!Endpoint_IsINReady(corenum)) {
 		Delay_MS(2);
 	}
-	for (i = 0; i < Length; i++)
+	for (uint16_t i = 0; i < Length; i++) {
 		Endpoint_Write_8(corenum, ((uint8_t *) Buffer)[i]);
+    }
 
 	return ENDPOINT_RWSTREAM_NoError;
 }
@@ -124,14 +124,13 @@ uint8_t Endpoint_Read_Stream_BE(void *const Buffer,
 
 #endif
 
-uint8_t Endpoint_Write_Control_Stream_LE(uint8_t corenum, const void *const Buffer,
-										 uint16_t Length)
+uint8_t Endpoint_Write_Control_Stream_LE(uint8_t corenum,
+        const void *const Buffer, uint16_t Length)
 {
-	Endpoint_Write_Stream_LE(corenum, (uint8_t *) Buffer, MIN(Length, USB_ControlRequest.wLength), NULL);
+	Endpoint_Write_Stream_LE(corenum,
+            (uint8_t *)Buffer, MIN(Length, USB_ControlRequest.wLength), NULL);
 	Endpoint_ClearIN(corenum);
-	//  while (!(Endpoint_IsOUTReceived()))
-	//  {
-	//  }
+
 	return ENDPOINT_RWCSTREAM_NoError;
 }
 
