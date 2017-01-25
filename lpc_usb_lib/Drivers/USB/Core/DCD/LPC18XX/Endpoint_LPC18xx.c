@@ -498,6 +498,9 @@ void DcdIrqHandler(uint8_t corenum)
 		if (USB_Reg->ENDPTSETUPSTAT) {
 			// memcpy(SetupPackage, dQueueHead[0].SetupPackage, 8);
 			// Will be cleared by Endpoint_ClearSETUP
+
+            // new: process control requests from interrupt context
+            USB_Device_ProcessControlRequest(corenum);
 		}
 
 		if (USB_Reg->ENDPTCOMPLETE) {

@@ -237,10 +237,10 @@ static inline uint8_t* Endpoint_receiveData(uint8_t corenum,
 static inline uint8_t* Endpoint_receiveData(uint8_t corenum,
 		uint8_t ep, uint16_t * size)
 {
-	Endpoint_SelectEndpoint(corenum, ep);
-	*size = Endpoint_BytesInEndpoint(corenum);
+	*size = usb_data_buffer_OUT_size[corenum];
+	usb_data_buffer_OUT_size[corenum] = 0;
+
 	usb_data_buffer_OUT_index[corenum] += *size;
-	usb_data_buffer_OUT_size[corenum] -= *size;
 	return usb_data_buffer_OUT[corenum];
 }
 			

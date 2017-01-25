@@ -499,6 +499,21 @@ static inline bool Endpoint_IsINReady(uint8_t corenum)
 }
 
 /**
+ * Newer Endpoint_IsINReady API that does not depend on selectedendpoint
+ */
+static inline bool Endpoint_IsINReady_new(uint8_t corenum,
+        const uint8_t logical_ep_num) ATTR_WARN_UNUSED_RESULT ATTR_ALWAYS_INLINE;
+
+static inline bool Endpoint_IsINReady_new(uint8_t corenum,
+        const uint8_t logical_ep_num)
+{
+	uint8_t PhyEP_in = 2 * logical_ep_num + 1; 
+	return ((dQueueHead[corenum][PhyEP_in].overlay.NextTD & LINK_TERMINATE) &&
+		   (dQueueHead[corenum][PhyEP_in].overlay.Active == 0));
+}
+
+
+/**
  * @brief  Determines if the selected OUT endpoint has received new packet from the host.
  *
  *  @ingroup Group_EndpointPacketManagement_LPC18xx
@@ -510,10 +525,27 @@ static inline bool Endpoint_IsOUTReceived(uint8_t corenum) ATTR_WARN_UNUSED_RESU
 
 static inline bool Endpoint_IsOUTReceived(uint8_t corenum)
 {
-	//              return	(dQueueHead[ endpointhandle[endpointselected] ].overlay.NextTD == LINK_TERMINATE &&
-	//                      dQueueHead[ endpointhandle[endpointselected] ].overlay.Active == 0 );
-	return dQueueHead[corenum][endpointhandle(corenum)[endpointselected[corenum]]].IsOutReceived ? true : false;				// TODO refractor IsOutReceived
+	// return (dQueueHead[endpointhandle[endpointselected]].overlay.NextTD
+    //      == LINK_TERMINATE &&
+	//      dQueueHead[endpointhandle[endpointselected]].overlay.Active == 0);
+
+    // TODO refactor IsOutReceived
+	return (
+        dQueueHead[corenum][endpointhandle(corenum)[endpointselected[corenum]]].IsOutReceived ? true : false);
 }
+
+static inline bool Endpoint_IsOUTReceived_new(uint8_t corenum,
+        const uint8_t logical_ep_num) ATTR_WARN_UNUSED_RESULT ATTR_ALWAYS_INLINE;
+
+static inline bool Endpoint_IsOUTReceived_new(uint8_t corenum,
+        const uint8_t logical_ep_num)
+{
+	uint8_t PhyEP_out = 2 * logical_ep_num;
+
+    // TODO refactor IsOutReceived
+    return dQueueHead[corenum][PhyEP_out].IsOutReceived ? true : false;
+}
+
 
 /**
  * @brief  Determines if the current CONTROL type endpoint has received a SETUP packet.
@@ -613,7 +645,25 @@ static inline void Endpoint_ClearOUT(uint8_t corenum)
 		dQueueHead[corenum][endpointhandle(corenum)[endpointselected[corenum]]].IsOutReceived = 0;
 		USB_REG(corenum)->ENDPTNAKEN |= (1 << endpointselected[corenum]);
 	}
+}
 
+static inline void Endpoint_ClearOUT_new(uint8_t corenum,
+        const uint8_t logical_ep_num) ATTR_ALWAYS_INLINE;
+
+static inline void Endpoint_ClearOUT_new(uint8_t corenum,
+        const uint8_t logical_ep_num)
+{
+	uint8_t phyEP_out = 2 * logical_ep_num;
+
+	if (logical_ep_num == ENDPOINT_CONTROLEP) {
+		usb_data_buffer_index[corenum] = 0;
+		dQueueHead[corenum][phyEP_out].IsOutReceived = 0;
+	}
+	else {
+		usb_data_buffer_OUT_index[corenum] = 0;
+		dQueueHead[corenum][phyEP_out].IsOutReceived = 0;
+		USB_REG(corenum)->ENDPTNAKEN |= (1 << logical_ep_num);
+	}
 }
 
 /**
