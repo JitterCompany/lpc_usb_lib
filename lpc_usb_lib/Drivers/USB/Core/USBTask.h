@@ -145,43 +145,8 @@
 				#endif
 			#endif
 
-		/* Function Prototypes: */
-			/** This is the main USB management task. The USB driver requires this task to be executed
-			 *  continuously when the USB system is active (device attached in host mode, or attached to a host
-			 *  in device mode) in order to manage USB communications. This task may be executed inside an RTOS,
-			 *  fast timer ISR or the main user application loop.
-			 *
-			 *  The USB task must be serviced within 30ms while in device mode, or within 1ms while in host mode.
-			 *  The task may be serviced at all times, or (for minimum CPU consumption):
-			 *
-			 *    - In device mode, it may be disabled at start-up, enabled on the firing of the @ref EVENT_USB_Device_Connect()
-			 *      event and disabled again on the firing of the @ref EVENT_USB_Device_Disconnect() event.
-			 *
-			 *    - In host mode, it may be disabled at start-up, enabled on the firing of the @ref EVENT_USB_Host_DeviceAttached()
-			 *      event and disabled again on the firing of the @ref EVENT_USB_Host_DeviceEnumerationComplete() or
-			 *      @ref EVENT_USB_Host_DeviceEnumerationFailed() events.
-			 *
-			 *  If in device mode (only), the control endpoint can instead be managed via interrupts entirely by the library
-			 *  by defining the INTERRUPT_CONTROL_ENDPOINT token and passing it to the compiler via the -D switch.
-			 *
-			 *  @see @ref Group_Events for more information on the USB events.
-			 *
-			 *  @ingroup Group_USBManagement
-			 */
-			void USB_USBTask(uint8_t corenum, uint8_t mode);
-
 	/* Private Interface - For use in library only: */
 	#if !defined(__DOXYGEN__)
-		/* Function Prototypes: */
-			#if defined(__INCLUDE_FROM_USBTASK_C)
-				#if defined(USB_CAN_BE_HOST)
-					static void USB_HostTask(uint8_t corenum);
-				#endif
-
-				#if defined(USB_CAN_BE_DEVICE)
-					static void USB_DeviceTask(uint8_t corenum);
-				#endif
-			#endif
 
 		/* Macros: */
 			#define HOST_TASK_NONBLOCK_WAIT(CoreID, Duration, NextState) MACROS{ USB_HostState[(CoreID)]   = HOST_STATE_WaitForDevice; \

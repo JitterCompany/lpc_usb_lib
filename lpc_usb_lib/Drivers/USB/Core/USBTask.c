@@ -31,7 +31,6 @@
  */
 
 
-#define  __INCLUDE_FROM_USBTASK_C
 #define  __INCLUDE_FROM_USB_DRIVER
 #include "USBTask.h"
 
@@ -47,51 +46,5 @@ volatile uint8_t     USB_HostState[MAX_USB_CORE];
 
 #if defined(USB_CAN_BE_DEVICE) && !defined(DEVICE_STATE_AS_GPIOR)
 volatile uint8_t     USB_DeviceState[MAX_USB_CORE];
-#endif
-
-void USB_USBTask(uint8_t corenum, uint8_t mode)
-{
-	#if defined(USB_HOST_ONLY)
- 		USB_HostTask(corenum);
-	#elif defined(USB_DEVICE_ONLY)
- 		USB_DeviceTask(corenum);
-	#else
-			if (mode == USB_MODE_Device)
-				USB_DeviceTask(corenum);
-			else if (mode == USB_MODE_Host)
-				USB_HostTask(corenum);
-	#endif
-}
-
-#if defined(USB_CAN_BE_DEVICE)
-static void USB_DeviceTask(uint8_t corenum)
-{
-	if (USB_DeviceState[corenum] != DEVICE_STATE_Unattached)
-	{
-		uint8_t PrevEndpoint = Endpoint_GetCurrentEndpoint(corenum);
-
-		Endpoint_SelectEndpoint(corenum, ENDPOINT_CONTROLEP);
-
-		if (Endpoint_IsSETUPReceived(corenum)) {
-            // experiment:
-		  //USB_Device_ProcessControlRequest(corenum);
-        }
-
-		Endpoint_SelectEndpoint(corenum, PrevEndpoint);
-	}
-}
-#endif
-
-#if defined(USB_CAN_BE_HOST)
-static void USB_HostTask(uint8_t corenum)
-{
-
-	uint8_t PrevPipe;
-
-	PrevPipe = Pipe_GetCurrentPipe(corenum);
-	Pipe_SelectPipe(corenum,PIPE_CONTROLPIPE);
-	USB_Host_ProcessNextHostState(corenum);
-	Pipe_SelectPipe(corenum,PrevPipe);
-}
 #endif
 
