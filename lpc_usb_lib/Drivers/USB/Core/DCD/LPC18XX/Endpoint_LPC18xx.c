@@ -177,9 +177,13 @@ bool Endpoint_ConfigureEndpoint(uint8_t corenum,
 	
 	pdQueueHead = &(dQueueHead[corenum][PhyEP]);
 	memset((void *) pdQueueHead, 0, sizeof(DeviceQueueHead) );
-	
+
+    // TODO: 1024 could also be a valid maxpacketsize in some cases?
+    // this mask only allows up to 1023..
 	pdQueueHead->MaxPacketSize = Size & 0x3ff;
 	pdQueueHead->IntOnSetup = 1;
+
+    // this bit is inverted: 1==disabled
 	pdQueueHead->ZeroLengthTermination = 1;
 	pdQueueHead->overlay.NextTD = LINK_TERMINATE;
     
