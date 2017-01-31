@@ -552,7 +552,11 @@ void DcdIrqHandler(uint8_t corenum)
                     // Clear NAK
                     USB_Reg->ENDPTNAKEN &= ~(1 << LogicalEP);
                     DcdDataTransfer(corenum,
-                            PhyEP, usb_data_buffer_OUT[corenum], 1024);
+                            PhyEP, usb_data_buffer_OUT[corenum],
+                            //TODO: more than one packet size is allowed,
+                            //maybe make it configurable somehow? originally
+                            //this was hardcoded at 1024
+                            dQueueHead[corenum][PhyEP].MaxPacketSize);
                 }
             }
         }
